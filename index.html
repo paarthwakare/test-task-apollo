@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Bottle of Water</title>
+  <meta name="description" content="Track your daily water intake with a delightful animated bottle."/>
+  <style>
+    :root{
+      --bg:#0f1320;
+      --card:#171b2b;
+      --fg:#e6ecff;
+      --muted:#9aa4c7;
+      --accent:#63c5ff;
+      --accent-2:#47a8f5;
+      --good:#3ad29f;
+      --warn:#ffc857;
+      --danger:#ff6b6b;
+      --glass: rgba(255,255,255,0.06);
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --water:#57c8ff;
+      --water-deep:#2f9ed9;
+      --bottle-stroke:#9fb6d8;
+      --ring-bg: conic-gradient(from -90deg, rgba(255,255,255,0.06) 0 360deg);
+    }
+    [data-theme="light"]{
+      --bg:#f3f6ff;
+      --card:#ffffff;
+      --fg:#0e1628;
+      --muted:#54627a;
+      --accent:#0b84ff;
+      --accent-2:#0069d9;
+      --good:#0db37a;
+      --warn:#c27b05;
+      --danger:#d94b4b;
+      --glass: rgba(0,0,0,0.05);
+      --shadow: 0 10px 30px rgba(0,0,0,.1);
+      --water:#32b1ff;
+      --water-deep:#1e7cc1;
+      --bottle-stroke:#7c9ec6;
+      --ring-bg: conic-gradient(from -90deg, rgba(0,0,0,0.06) 0 360deg);
+    }
+    * { box-sizing: border-box; }
+    html, body { height:100%; }
+    body{
+      margin:0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1000px 600px at 20% -10%, rgba(99,197,255,.15), transparent 40%),
+                  radial-gradient(1000px 600px at 120% 10%, rgba(71,168,245,.12), transparent 40%),
+                  var(--bg);
+      color:var(--fg);
+      display:flex;
+      min-height:100vh;
+    }
+    .app{
+      margin:auto;
+      width:min(1100px, 95vw);
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap:24px;
+      align-items:stretch;
+    }
+    @media (max-width: 940px){
+      .app{ grid-template-columns: 1fr; gap:16px; width:min(800px, 96vw); }
+    }
+    .panel{
+      background: linear-gradient(180deg, var(--glass), transparent 60%);
+      backdrop-filter: blur(10px);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:16px;
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      position:relative;
+    }
+    header{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:16px 18px;
+      border-bottom:1px dashed rgba(255,255,255,.1);
+    }
+    .title{
+      display:flex; align-items:center; gap:12px; font-weight:700; letter-spacing:.3px;
+    }
+    .title .drop {
+      width:28px; height:28px; border-radius:50%;
+      background: radial-gradient(60% 60% at 45% 35%, #fff8, #fff0 70%),
+                  linear-gradient(180deg, var(--accent), var(--accent-2));
+      box-shadow: inset 0 0 10px #fff4;
+      transform: rotate(18deg);
+    }
+    .chip{
+      padding:4px 10px; border-radius:999px; font-size:12px; color:var(--muted);
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.03);
+    }
+    .bottle-wrap{
+      padding:18px;
+      display:grid; grid-template-columns: 1fr 300px; gap:18px;
+    }
+    @media (max-width: 940px){
+      .bottle-wrap { grid-template-columns: 1fr; }
+    }
+    .canvas{
+      display:grid; place-items:center;
+      min-height:520px; position:relative;
+      padding:10px;
+    }
+    .bottle-card{
+      width:min(440px, 80vw); aspect-ratio: 3/5;
+      border-radius:20px;
+      background: radial-gradient(180px 200px at 50% 0%, rgba(255,255,255,.05), transparent),
+                  linear-gradient(180deg, rgba(255,255,255,.02), rgba(0,0,0,.08));
+      border:1px solid rgba(255,255,255,.10);
+      position:relative; display:grid; place-items:center; overflow:visible;
+    }
+    .bench{
+      position:absolute; inset:auto 20px -12px 20px; height:32px; filter: blur(10px);
+      background: radial-gradient(60% 100% at 50% -40%, rgba(0,0,0,.35), transparent 70%);
+      pointer-events:none;
+    }
+    .stats{
+      display:grid; gap:10px; padding:10px; align-content:start;
+    }
+    .ring{
+      width:160px; height:160px; border-radius:50%;
+      background: var(--ring-bg);
+      display:grid; place-items:center;
+      margin:4px auto 12px;
+      position:relative;
+      box-shadow: inset 0 0 0 10px rgba(0,0,0,.08), inset 0 0 0 1px rgba(255,255,255,.06);
+    }
+    .ring::before{
+      content:"";
+      position:absolute; inset:10px;
+      background: conic-gradient(from -90deg, var(--accent) var(--pct, 0%), rgba(255,255,255,.08) 0);
+      border-radius:50%;
+      mask: radial-gradient(closest-side, transparent 74%, #000 75%);
+      -webkit-mask: radial-gradient(closest-side, transparent 74%, #000 75%);
+    }
+    .ring .center{
+      position:absolute; inset:22px; border-radius:50%;
+      display:grid; place-items:center; text-align:center; padding:6px 10px;
+      background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(0,0,0,.06));
+      border:1px solid rgba(255,255,255,.08);
+      font-weight:700;
+    }
+    .statline{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:8px 10px; border-radius:8px;
+      background: rgba(255,255,255,.03);
+      border:1px solid rgba(255,255,255,.08); color:var(--muted);
+      font-size:14px;
+    }
+    .controls{
+      padding:8px 18px 18px; display:grid; gap:10px; align-content:start;
+      border-top:1px dashed rgba(255,255,255,.1);
+    }
+    .row{ display:flex; flex-wrap:wrap; gap:8px; }
+    button, .btn {
+      appearance:none; border:none; cursor:pointer;
+      padding:10px 12px; border-radius:10px; font-weight:600;
+      color:var(--fg);
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.18));
+      border:1px solid rgba(255,255,255,.14);
+      box-shadow: 0 1px 0 rgba(255,255,255,.08) inset, 0 6px 14px rgba(0,0,0,.2);
+      transition: transform .06s ease, filter .2s ease, background .3s ease;
+    }
+    button:hover{ filter: brightness(1.06); }
+    button:active{ transform: translateY(1px) scale(.99); }
+    .primary{
+      background: linear-gradient(180deg, var(--accent), var(--accent-2));
+      border-color: transparent;
+      color:#00121f;
+      text-shadow: 0 1px 0 rgba(255,255,255,.35);
+    }
+    .ghost{
+      background: transparent; border-style:dashed; color:var(--muted);
+    }
+    .danger{ background: linear-gradient(180deg, #ff8585, #ff6b6b); }
+    .good{ background: linear-gradient(180deg, #47e0b0, #2fbd93); color:#002218; }
+    input[type="number"], input[type="text"]{
+      background: rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.12);
+      color:var(--fg); padding:10px 12px; border-radius:10px; width:110px; font-weight:600;
+      outline:none;
+    }
+    label.small{ font-size:12px; color:var(--muted); display:block; margin-bottom:6px; }
+    .toggle{
+      display:flex; align-items:center; gap:8px; font-size:14px; color:var(--muted);
+      user-select:none;
+    }
+    .toggle input{ width:40px; height:24px; appearance:none; background: rgba(255,255,255,.12);
+      border-radius:20px; position:relative; outline:none; cursor:pointer; border:1px solid rgba(255,255,255,.14);}
+    .toggle input:checked{ background: linear-gradient(180deg, var(--accent), var(--accent-2)); border-color: transparent; }
+    .toggle input::after{
+      content:""; position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%;
+      background:#fff; transition:left .2s ease; box-shadow:0 1px 2px rgba(0,0,0,.2);
+    }
+    .toggle input:checked::after{ left:20px; }
+    .log{
+      padding:12px 18px;
+      display:grid; gap:8px; max-height:210px; overflow:auto;
+      border-top:1px dashed rgba(255,255,255,.08);
+    }
+    .entry{ display:flex; align-items:center; justify-content:space-between; font-size:14px; color:var(--muted); }
+    .entry strong{ color:var(--fg); }
+    .empty{ color:var(--muted); text-align:center; padding:14px 8px; font-size:14px; }
+    .kbd{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      padding:2px 6px; border-radius:6px; border:1px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.06); font-size:12px; color:var(--muted);
+    }
+
+    /* Bottle SVG styling and waves */
+    svg{ width:85%; height:auto; overflow:visible; }
+    .bottle-outline{ fill: none; stroke: var(--bottle-stroke); stroke-width:3; }
+    .bottle-gloss{ fill: url(#bottleGloss); opacity:.65; }
+    .water-rect{ fill: url(#waterGrad); }
+    .wave{ fill: url(#waveGrad); opacity:.7; }
+    .wave2{ opacity:.45; }
+    @keyframes waveMove {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-200px); }
+    }
+    .waveAnim { animation: waveMove 6s linear infinite; }
+    .waveAnim.slow { animation-duration: 9s; animation-direction: reverse; }
+
+    .tip{
+      position:absolute; top:12px; right:12px; color:var(--muted); font-size:12px;
+      background: rgba(255,255,255,.05); padding:6px 8px; border-radius:8px;
+      border:1px dashed rgba(255,255,255,.14);
+    }
+    .goal-ok{ color:var(--good); }
+    .goal-warn{ color:var(--warn); }
+    .goal-over{ color:var(--danger); }
+    .subtle{ color:var(--muted); font-size:12px; }
+    .link{ color:var(--accent); text-decoration:none; }
+  </style>
+</head>
+<body>
+  <div class="app panel">
+    <header>
+      <div class="title">
+        <div class="drop"></div>
+        Bottle of Water
+        <span class="chip" id="todayLabel"></span>
+      </div>
+      <div class="row">
+        <label class="toggle" title="Toggle light/dark theme">
+          <input id="themeToggle" type="checkbox"/>
+          Theme
+        </label>
+        <label class="toggle" title="Hydration reminder every 45 minutes">
+          <input id="reminderToggle" type="checkbox"/>
+          Reminders
+        </label>
+      </div>
+    </header>
+
+    <div class="bottle-wrap">
+      <div class="canvas panel">
+        <div class="tip">Hotkeys: <span class="kbd">1</span> 50ml <span class="kbd">2</span> 100ml <span class="kbd">3</span> 250ml <span class="kbd">4</span> 500ml • <span class="kbd">U</span> undo</div>
+        <div class="bottle-card">
+          <svg id="bottleSVG" viewBox="0 0 220 420" aria-label="Water bottle with fill level">
+            <!-- Gradients -->
+            <defs>
+              <linearGradient id="waterGrad" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="var(--water)"/>
+                <stop offset="100%" stop-color="var(--water-deep)"/>
+              </linearGradient>
+              <linearGradient id="waveGrad" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="rgba(255,255,255,.85)"/>
+                <stop offset="100%" stop-color="rgba(255,255,255,.35)"/>
+              </linearGradient>
+              <linearGradient id="bottleGloss" x1="0" x2="1" y1="0" y2="0">
+                <stop offset="0%" stop-color="rgba(255,255,255,.35)"/>
+                <stop offset="40%" stop-color="rgba(255,255,255,.08)"/>
+                <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+              </linearGradient>
+              <clipPath id="clipBottle">
+                <use href="#bottle-shape"/>
+              </clipPath>
+              <filter id="shadow">
+                <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#000" flood-opacity=".35"/>
+              </filter>
+            </defs>
+
+            <!-- Bottle shape path -->
+            <path id="bottle-shape" d="
+              M110 10
+              c 20 0 28 6 30 16
+              l 4 18
+              c 1 6 6 10 12 12
+              l 12 4
+              c 7 2 12 9 12 16
+              v 20
+              c 0 8 -6 15 -14 16
+              l -10 2
+              v 225
+              c 0 20 -14 45 -46 45
+              s -46 -25 -46 -45
+              v -225
+              l -10 -2
+              c -8 -1 -14 -8 -14 -16
+              v -20
+              c 0 -7 5 -14 12 -16
+              l 12 -4
+              c 6 -2 11 -6 12 -12
+              l 4 -18
+              c 2 -10 10 -16 30 -16
+              z" class="bottle-outline" filter="url(#shadow)"/>
+
+            <!-- Water group clipped inside bottle -->
+            <g clip-path="url(#clipBottle)">
+              <g id="waterGroup" transform="translate(0, 350)">
+                <!-- The base water rectangle fills downwards -->
+                <rect class="water-rect" x="0" y="0" width="100%" height="1000"></rect>
+                <!-- Waves at the top -->
+                <g transform="translate(-200, -10)">
+                  <path class="wave waveAnim" d="
+                    M 0 0
+                    c 20 -10 40 -10 60 0
+                    c 20 10 40 10 60 0
+                    c 20 -10 40 -10 60 0
+                    c 20 10 40 10 60 0
+                    v 30 h -240 z"></path>
+                </g>
+                <g transform="translate(-100, -4)">
+                  <path class="wave wave2 waveAnim slow" d="
+                    M 0 0
+                    c 20 -8 40 -8 60 0
+                    c 20 8 40 8 60 0
+                    c 20 -8 40 -8 60 0
+                    c 20 8 40 8 60 0
+                    v 22 h -240 z"></path>
+                </g>
+              </g>
+            </g>
+
+            <!-- Gloss highlight -->
+            <path d="
+              M85 40
+              c -8 0 -12 4 -12 10
+              v 100
+              c 0 10 8 14 14 8
+              l 8 -8
+              c 3 -3 5 -7 5 -12
+              v -88
+              c 0 -5 -4 -10 -10 -10
+              z" class="bottle-gloss"/>
+          </svg>
+
+          <div class="bench"></div>
+        </div>
+      </div>
+
+      <div class="stats panel">
+        <div class="ring" id="ring" title="Daily progress ring">
+          <div class="center">
+            <div id="percentText" style="font-size:26px; line-height:1;">0%</div>
+            <div class="subtle" id="statusText">0 / 2000 ml</div>
+          </div>
+        </div>
+
+        <div class="statline">
+          <div>Goal</div>
+          <div><strong id="goalText">2000</strong> ml</div>
+        </div>
+        <div class="statline">
+          <div>Remaining</div>
+          <div id="remainingText">2000 ml</div>
+        </div>
+        <div class="statline">
+          <div>Last drink</div>
+          <div id="lastDrinkText">—</div>
+        </div>
+
+        <div class="controls">
+          <div class="row" role="group" aria-label="Quick add">
+            <button class="btn" data-add="50" title="Add 50 ml (1)">+50 ml</button>
+            <button class="btn" data-add="100" title="Add 100 ml (2)">+100 ml</button>
+            <button class="btn" data-add="250" title="Add 250 ml (3)">+250 ml</button>
+            <button class="btn" data-add="500" title="Add 500 ml (4)">+500 ml</button>
+          </div>
+
+          <div class="row">
+            <div>
+              <label class="small" for="customAmount">Custom amount (ml)</label>
+              <input id="customAmount" type="number" min="10" step="10" placeholder="e.g. 300"/>
+            </div>
+            <button id="addCustom" class="primary">Add</button>
+          </div>
+
+          <div class="row">
+            <div>
+              <label class="small" for="goalInput">Daily goal (ml)</label>
+              <input id="goalInput" type="number" min="500" step="50" value="2000"/>
+            </div>
+            <button id="saveGoal" class="good">Save goal</button>
+            <button id="resetDay" class="ghost" title="Reset today only">Reset</button>
+            <button id="undoBtn" class="ghost" title="Undo last (U)">Undo</button>
+          </div>
+
+          <div class="row" style="align-items:center; justify-content:space-between;">
+            <div id="goalBadge" class="chip">Stay hydrated!</div>
+            <a class="link subtle" href="#" id="exportLog">Export log</a>
+          </div>
+        </div>
+
+        <div class="log" id="logList" aria-live="polite" aria-label="Intake log">
+          <div class="empty">No drinks logged yet.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const LS_KEYS = {
+      goal: 'bow_goal',
+      consumed: 'bow_consumed',
+      log: 'bow_log',
+      date: 'bow_date',
+      theme: 'bow_theme',
+      reminders: 'bow_reminders'
+    };
+
+    let state = {
+      goal: 2000,
+      consumed: 0,
+      log: [], // {ts, amount}
+      theme: (localStorage.getItem(LS_KEYS.theme) || 'dark'),
+      reminders: localStorage.getItem(LS_KEYS.reminders) === '1'
+    };
+
+    const els = {
+      ring: document.getElementById('ring'),
+      percentText: document.getElementById('percentText'),
+      statusText: document.getElementById('statusText'),
+      remainingText: document.getElementById('remainingText'),
+      goalText: document.getElementById('goalText'),
+      goalBadge: document.getElementById('goalBadge'),
+      todayLabel: document.getElementById('todayLabel'),
+      logList: document.getElementById('logList'),
+      lastDrinkText: document.getElementById('lastDrinkText'),
+      customAmount: document.getElementById('customAmount'),
+      goalInput: document.getElementById('goalInput'),
+      saveGoal: document.getElementById('saveGoal'),
+      resetDay: document.getElementById('resetDay'),
+      undoBtn: document.getElementById('undoBtn'),
+      addCustom: document.getElementById('addCustom'),
+      themeToggle: document.getElementById('themeToggle'),
+      reminderToggle: document.getElementById('reminderToggle'),
+      exportLog: document.getElementById('exportLog'),
+      bottleSVG: document.getElementById('bottleSVG'),
+      waterGroup: document.getElementById('waterGroup')
+    };
+
+    // Initialize
+    function init(){
+      loadState();
+      setupUI();
+      setupEvents();
+      updateAll();
+      tickMidnightWatcher();
+      scheduleReminder(state.reminders);
+    }
+
+    function loadState(){
+      const savedDate = localStorage.getItem(LS_KEYS.date);
+      const today = dateKey(new Date());
+      if (savedDate && savedDate !== today){
+        // New day: reset daily counters
+        state.consumed = 0;
+        state.log = [];
+        localStorage.setItem(LS_KEYS.date, today);
+        localStorage.setItem(LS_KEYS.consumed, '0');
+        localStorage.setItem(LS_KEYS.log, '[]');
+      } else {
+        localStorage.setItem(LS_KEYS.date, today);
+        state.consumed = parseInt(localStorage.getItem(LS_KEYS.consumed) || '0', 10);
+        try { state.log = JSON.parse(localStorage.getItem(LS_KEYS.log) || '[]'); } catch { state.log = []; }
+      }
+      state.goal = parseInt(localStorage.getItem(LS_KEYS.goal) || '2000', 10);
+      if (!Number.isFinite(state.goal) || state.goal < 500) state.goal = 2000;
+
+      // Theme and reminders
+      document.body.setAttribute('data-theme', state.theme === 'light' ? 'light' : 'dark');
+      els.themeToggle.checked = state.theme === 'light';
+      els.reminderToggle.checked = state.reminders;
+    }
+
+    function setupUI(){
+      // Today label
+      const now = new Date();
+      const opts = { weekday:'short', month:'short', day:'numeric' };
+      els.todayLabel.textContent = now.toLocaleDateString(undefined, opts);
+      els.goalInput.value = state.goal;
+
+      // Ensure water path anim classes apply after DOM paints
+      requestAnimationFrame(() => {
+        const waves = document.querySelectorAll('.wave');
+        waves.forEach(w => w.classList.add('waveAnim'));
+      });
+    }
+
+    function setupEvents(){
+      // Quick add buttons
+      document.querySelectorAll('[data-add]').forEach(btn => {
+        btn.addEventListener('click', () => addWater(parseInt(btn.dataset.add,10)));
+      });
+
+      els.addCustom.addEventListener('click', () => {
+        const amt = parseInt(els.customAmount.value, 10);
+        if (Number.isFinite(amt) && amt > 0) {
+          addWater(amt);
+          els.customAmount.value = '';
+        } else {
+          alert('Enter a valid amount in milliliters.');
+        }
+      });
+
+      els.saveGoal.addEventListener('click', () => {
+        const g = parseInt(els.goalInput.value, 10);
+        if (!Number.isFinite(g) || g < 500) { alert('Goal must be at least 500 ml'); return; }
+        state.goal = g;
+        localStorage.setItem(LS_KEYS.goal, String(state.goal));
+        updateAll();
+        flash(els.goalBadge, 'Saved!');
+      });
+
+      els.resetDay.addEventListener('click', () => {
+        if (confirm('Reset today’s intake? This will clear today’s log.')) {
+          state.consumed = 0;
+          state.log = [];
+          localStorage.setItem(LS_KEYS.consumed, '0');
+          localStorage.setItem(LS_KEYS.log, '[]');
+          updateAll();
+        }
+      });
+
+      els.undoBtn.addEventListener('click', () => undo());
+
+      els.themeToggle.addEventListener('change', () => {
+        const isLight = els.themeToggle.checked;
+        state.theme = isLight ? 'light' : 'dark';
+        document.body.setAttribute('data-theme', state.theme);
+        localStorage.setItem(LS_KEYS.theme, state.theme);
+      });
+
+      els.reminderToggle.addEventListener('change', async () => {
+        const enabled = els.reminderToggle.checked;
+        if (enabled && 'Notification' in window){
+          try {
+            const perm = await Notification.requestPermission();
+            if (perm !== 'granted') {
+              // Will still do in-app reminders
+            }
+          } catch {}
+        }
+        state.reminders = enabled;
+        localStorage.setItem(LS_KEYS.reminders, enabled ? '1' : '0');
+        scheduleReminder(enabled);
+      });
+
+      els.exportLog.addEventListener('click', (e) => {
+        e.preventDefault();
+        exportLog();
+      });
+
+      // Keyboard shortcuts
+      window.addEventListener('keydown', (e) => {
+        if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+        if (e.key === '1') addWater(50);
+        else if (e.key === '2') addWater(100);
+        else if (e.key === '3') addWater(250);
+        else if (e.key === '4') addWater(500);
+        else if (e.key.toLowerCase() === 'u') undo();
+      });
+
+      // Responsive water update on resize (bbox can change if scaled)
+      window.addEventListener('resize', () => updateWater());
+      window.addEventListener('orientationchange', () => setTimeout(updateWater, 150));
+    }
+
+    function addWater(amount){
+      if (!Number.isFinite(amount) || amount <= 0) return;
+      state.consumed += amount;
+      state.log.unshift({ ts: Date.now(), amount });
+      saveDaily();
+      updateAll();
+      ripple();
+    }
+
+    function undo(){
+      if (!state.log.length) return;
+      const last = state.log.shift();
+      state.consumed = Math.max(0, state.consumed - last.amount);
+      saveDaily();
+      updateAll();
+    }
+
+    function saveDaily(){
+      localStorage.setItem(LS_KEYS.consumed, String(state.consumed));
+      localStorage.setItem(LS_KEYS.log, JSON.stringify(state.log));
+      localStorage.setItem(LS_KEYS.date, dateKey(new Date()));
+    }
+
+    function updateAll(){
+      const pct = clamp(state.goal ? state.consumed/state.goal : 0, 0, 1);
+      const pctText = Math.round(pct * 100);
+      els.percentText.textContent = pctText + '%';
+      els.ring.style.setProperty('--pct', (pct*100) + '%');
+      els.goalText.textContent = state.goal.toString();
+      els.statusText.textContent = `${state.consumed} / ${state.goal} ml`;
+
+      const remaining = Math.max(0, state.goal - state.consumed);
+      els.remainingText.textContent = `${remaining} ml`;
+
+      // Goal badge state
+      let badgeText = 'Stay hydrated!';
+      els.goalBadge.classList.remove('goal-ok', 'goal-warn', 'goal-over');
+      if (pct === 0) {
+        badgeText = 'Let’s begin 🚰';
+      } else if (pct < 0.5) {
+        badgeText = 'Nice start!';
+        els.goalBadge.classList.add('goal-warn');
+      } else if (pct < 1) {
+        badgeText = 'Over halfway 💧';
+        els.goalBadge.classList.add('goal-ok');
+      } else if (pct >= 1 && state.consumed - state.goal < 250) {
+        badgeText = 'Goal reached 🎉';
+        els.goalBadge.classList.add('goal-ok');
+      } else {
+        badgeText = `Over by ${state.consumed - state.goal} ml`;
+        els.goalBadge.classList.add('goal-over');
+      }
+      els.goalBadge.textContent = badgeText;
+
+      // Last drink text
+      if (state.log.length) {
+        const last = state.log[0];
+        els.lastDrinkText.textContent = `${formatTime(new Date(last.ts))} (${last.amount} ml)`;
+      } else {
+        els.lastDrinkText.textContent = '—';
+      }
+
+      // Update log
+      renderLog();
+
+      // Update water fill
+      updateWater();
+    }
+
+    function renderLog(){
+      const list = els.logList;
+      list.innerHTML = '';
+      if (!state.log.length) {
+        list.innerHTML = '<div class="empty">No drinks logged yet.</div>';
+        return;
+      }
+      const frag = document.createDocumentFragment();
+      state.log.slice(0, 12).forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'entry';
+        div.innerHTML = `<span>${formatTime(new Date(item.ts))}</span><strong>+${item.amount} ml</strong>`;
+        frag.appendChild(div);
+      });
+      list.appendChild(frag);
+    }
+
+    function updateWater(){
+      // Compute top Y position of water based on bottle shape bbox
+      const path = document.getElementById('bottle-shape');
+      if (!path) return;
+      const bbox = path.getBBox();
+      const pct = clamp(state.goal ? state.consumed/state.goal : 0, 0, 1);
+      const waterHeight = bbox.height * pct;
+      const waterTopY = bbox.y + (bbox.height - waterHeight);
+      // Move water group so its top aligns with waterTopY
+      els.waterGroup.setAttribute('transform', `translate(0, ${waterTopY})`);
+    }
+
+    // Ripple effect: momentary nudge to waves
+    function ripple(){
+      els.waterGroup.classList.remove('pulse');
+      void els.waterGroup.offsetWidth; // reflow
+      els.waterGroup.classList.add('pulse');
+      // Add a tiny bump by toggling animation speed briefly
+      const waves = document.querySelectorAll('.waveAnim');
+      waves.forEach(w => {
+        const orig = w.style.animationDuration || '';
+        w.style.animationDuration = '3s';
+        setTimeout(() => w.style.animationDuration = orig, 500);
+      });
+    }
+
+    function flash(el, text){
+      const old = el.textContent;
+      el.textContent = text;
+      setTimeout(() => el.textContent = old, 1000);
+    }
+
+    function scheduleReminder(enabled){
+      if (window.__remTimer) clearInterval(window.__remTimer);
+      if (!enabled) return;
+      const PERIOD_MIN = 45;
+      window.__remTimer = setInterval(() => {
+        const since = state.log.length ? (Date.now() - state.log[0].ts) : Infinity;
+        if (since > PERIOD_MIN*60*1000){
+          inAppNudge();
+          if ('Notification' in window && Notification.permission === 'granted'){
+            try {
+              new Notification('Time to sip water 💧', { body: 'Keep your hydration on track!', silent: false });
+            } catch {}
+          }
+        }
+      }, 60*1000); // check every minute
+    }
+
+    function inAppNudge(){
+      els.goalBadge.textContent = 'Time to sip 💧';
+      els.goalBadge.classList.add('goal-warn');
+      setTimeout(() => updateAll(), 5000);
+    }
+
+    function exportLog(){
+      const data = {
+        date: dateKey(new Date()),
+        goal: state.goal,
+        consumed: state.consumed,
+        log: state.log
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `water-${data.date}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Midnight reset watcher
+    function tickMidnightWatcher(){
+      setInterval(() => {
+        const savedDate = localStorage.getItem(LS_KEYS.date);
+        const today = dateKey(new Date());
+        if (savedDate !== today) {
+          // Start a new day
+          localStorage.setItem(LS_KEYS.date, today);
+          state.consumed = 0;
+          state.log = [];
+          saveDaily();
+          updateAll();
+        }
+      }, 60000);
+    }
+
+    // Utils
+    function dateKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+    function formatTime(d){
+      return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    }
+    function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+
+    // Start
+    init();
+  </script>
+</body>
+</html>
